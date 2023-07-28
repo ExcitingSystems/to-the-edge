@@ -6,7 +6,7 @@ clc
 Ts = 50e-6; % s
 
 %% Motor and inverter limitations
-% (Motor Type: SEW CM3C80S)
+% (Motor Type: SEW CM3C80S, 6000 rpm)
 
 motor.lim.i = 16; % A
 motor.lim.n_me = 800; % 1/min
@@ -15,9 +15,9 @@ motor.lim.T = 10.5; % N*m
 motor.nominal.i = 13.0; % 15.9; % A %before 10.1 A
 motor.nominal.n_me = 6e+3; % 1/min
 motor.nominal.omega_me = motor.nominal.n_me * 2 * pi / 60; % 1/s
-motor.nominal.T = 10.5; % N*m
+motor.nominal.T = 10.5; % N*m %changed in Torque_ref_sampling to 30 % of this value
 
-inverter.lim.u_dc = 85;
+inverter.lim.u_dc = 625;
 inverter.lim.time_over_limit = 1e-3; % s
 
 inverter.mapping = [-1 +1 +1 -1 -1 -1 +1 +1;
@@ -49,6 +49,42 @@ abc2alphabeta0 = [      2/3      -1/3       -1/3;
 alphabeta02abc = [  1          0 1/sqrt(2);
                  -1/2  sqrt(3)/2 1/sqrt(2);
                  -1/2 -sqrt(3)/2 1/sqrt(2);];
+             
+%% static Parameter identification
+% snapshot from Testbench:
+% A_d = [0.9074 0.0458;
+%       -0.0948 0.9916];
+%    
+% B_d = [ 0.0296 0.0031;
+%        -0.0039 0.0371];
+%    
+% E_d = [0.0722; -1.011];
+
+A_d = [0.896142 0.0486026;
+      -0.095931 0.9833810];
+   
+B_d = [ 0.029023 0.003453;
+       -0.005443 0.035227];
+   
+E_d = [1.072431; -3.149501];
+
+w_el = 2200 * 2*pi/60 * motor.param.p;
+
+ATs = logm(A_d);
+A = ATs / Ts;
+
+Bd_tilde = [B_d, E_d];
+
+B_tilde = (A_d - eye(2))^(-1) * A * Bd_tilde;
+B = B_tilde(:,1:2);
+E = B_tilde(:,3);
+
+motor.ident.L_d = 1/B(1,1);
+motor.ident.L_q = 1/B(2,2);
+Rs1=-motor.ident.L_d*A(1,1);
+Rs2=-motor.ident.L_q*A(2,2);
+motor.ident.R_s = (Rs1+Rs2)/2;
+motor.ident.psi_p = -E(2)*motor.ident.L_q/w_el;
              
 %% Calibration
 
@@ -128,6 +164,7 @@ controller.RLS.P_0 = eye(controller.RLS.n) * 1e1;
 controller.RLS.xi_0 = [0; 0; 0; 0; 1;];
 
 % which voltage boundary is surveilled by the safeguard:
+% controller.safeguard.voltage_boundary = motor.param.U_DC^2/3;
 controller.safeguard.voltage_scaling = (2/pi)^2;
 
 controller.DQDTC.LP_filter.passband_edge = 10; %Hz
@@ -137,17 +174,44 @@ for i=0:9
     eval(append('init_layer_', string(i), ' = init_ANN(90);'));
 end
 
-%data_loc = % can be used when pretrained weights are available
-%info = h5info(data_loc);
+data_loc = "C:\Users\mschenke\Desktop\DQDTC_weights\train_10min_06\weights_checkpoint_0.hdf5";
+info = h5info(data_loc);
 
-%for i=0:9
-%    eval(append('init_layer_', string(i), " = h5read(data_loc, '/w", string(i),"');"));
-%    eval(append('init_layer_', string(i), " = init_layer_", string(i), "';"));
-%end
+for i=0:9
+    eval(append('init_layer_', string(i), " = h5read(data_loc, '/w", string(i),"');"));
+    eval(append('init_layer_', string(i), " = init_layer_", string(i), "';"));
+end
 
-                                
+
+%% Preindl MPC
+
+controller.preindl.LUT = load('Reforce_PMSM_LUTs.mat');
+controller.preindl.LUT.x_vec = -16:1:1;
+controller.preindl.LUT.y_vec = -16:1:16;
+
+fn = fieldnames(controller.preindl.LUT);
+fn = fn(contains(fn, 'map'));
+for k = 1:numel(fn)
+    eval(['controller.preindl.LUT.', fn{k}, '=', 'FILL_LUT2D(controller.preindl.LUT.x_vec,controller.preindl.LUT.y_vec,controller.preindl.LUT.', fn{k}, ');']);
+end
+controller.preindl.LUT.psi_p = LUT2D(controller.preindl.LUT.x_vec,controller.preindl.LUT.y_vec,controller.preindl.LUT.Psi_d_map,0,0);
+
+controller.preindl.zeta = 0.9;
+controller.preindl.w_boundary = 100;
+controller.preindl.lambda_current = 5;
+controller.preindl.lambda_limit = 10000;
+
+controller.preindl.model.B_d = Ts * [1/motor.param.L_d 0;
+                                     0 1/motor.param.L_q];   
+                                 
 controller.compensate_deadtime =1;  % 0=no, 1=yes                               
 
+
+%% U/f init
+
+U_nom = 47;
+f_nom = 1000 / 60;
+uf_factor = U_nom / f_nom;
 
 %% Load control
 % configured relation between desired load speed and DAC output value
