@@ -51,7 +51,7 @@ import struct
 from interface_functions import NeuralNetworkDecoder
 import threading
 
-TCP_IP = # IP Address of the workstation computer
+TCP_IP = "131.234.172.167" # IP Address of the workstation computer
 TCP_PORT_DATA = 1030  #
 TCP_PORT_WEIGHTS = 1031  #
 BUFFER_SIZE = 988 # = floor(1024 // (measurement_size * 4)) * (measurement_size * 4) # <- 4 = nb of bits per float
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         # Create a dSPACE Testbench object; the Testbench object is the central object to access
         # factory objects for the creation of all kinds of Testbench-specific objects
         # --------------------------------------------------------------------------
-        MyTestbench = MyTestbenchFactory.CreateVendorSpecificTestbench("dSPACE GmbH", "XIL API", "2021-A")
+        MyTestbench = MyTestbenchFactory.CreateVendorSpecificTestbench("dSPACE GmbH", "XIL API", "2021-B")
 
         # --------------------------------------------------------------------------
         # We need an MAPortFactory to create an MAPort, a ValueFactory to create ValueContainer 
@@ -180,35 +180,46 @@ if __name__ == "__main__":
         DQDTCPrefix = "Control_Scheme/DQ_DTC/"
         #DQDTCPrefix = "Controller/"
 
+
         # housekeeping
-        manualCaptureTrigger = masterVariablesPrefix + DQDTCPrefix + "Manual_Trigger/Out1"
+        manualCaptureTrigger = masterVariablesPrefix +  "SF_Sollwertgeber/manual_Trigger"
         #manualCaptureTrigger = masterVariablesPrefix + DQDTCPrefix + "Manual_Trigger/Value"
-        learningRate = masterVariablesPrefix + DQDTCPrefix + "learning_rate/Out1"
+        # learningRate = masterVariablesPrefix + DQDTCPrefix + "learning_rate/Out1"
         #learningRate = masterVariablesPrefix + DQDTCPrefix + "Learning_Rate/Value"
-        updateTime = masterVariablesPrefix + DQDTCPrefix + "Update_Time/Value"
+        # updateTime = masterVariablesPrefix + DQDTCPrefix + "Update_Time/Value"
 
         # measurement
-        stateOmega = masterVariablesPrefix + DQDTCPrefix + "Featurizer/omega_me_scaling/Out1"
-        stateCurrentId = masterVariablesPrefix + DQDTCPrefix + "Featurizer/current_scaling/Out1[0]"
-        stateCurrentIq = masterVariablesPrefix + DQDTCPrefix + "Featurizer/current_scaling/Out1[1]"
+        # stateOmega = masterVariablesPrefix + DQDTCPrefix + "Featurizer/omega_me_scaling/Out1"
+        stateCurrentId = masterVariablesPrefix + "I_dq/I_d_ist"
+        stateCurrentIq = masterVariablesPrefix + "I_dq/I_q_ist"
+        stateTargetId = masterVariablesPrefix + "I_d_soll/Out1"
+        stateTargetIq = masterVariablesPrefix + "I_q_soll/Out1"
 
-        stateVoltageUd_k1 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling0/Out1[0]"
-        stateVoltageUq_k1 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling0/Out1[1]"
-        stateVoltageUd_k2 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling1/Out1[0]"
-        stateVoltageUq_k2 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling1/Out1[1]"
-        stateVoltageUd_k3 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling2/Out1[0]"
-        stateVoltageUq_k3 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling2/Out1[1]"
+        trajectoryIdx = masterVariablesPrefix + "SF_Sollwertgeber/Idx"
+        trajectoryReset = masterVariablesPrefix + "SF_Sollwertgeber/reset"
+        # stateTrajectoryEpisodeEnd = masterVariablesPrefix + "Sollwertgeber/EpisodeEnd"
 
-        statePositionScaledCos = masterVariablesPrefix + DQDTCPrefix + "Featurizer/position_scaling/Out1[0]"
-        statePositionScaledSin = masterVariablesPrefix + DQDTCPrefix + "Featurizer/position_scaling/Out1[1]"
-        stateCurrentStator = masterVariablesPrefix + DQDTCPrefix + "Featurizer/stator_current_scaling/i_s_norm"
-        stateDCLinkVoltage = masterVariablesPrefix + DQDTCPrefix + "Featurizer/DC_link_scaling/u_DC_norm"
-        stateTorqueRef = masterVariablesPrefix + DQDTCPrefix + "Featurizer/T_ref_scaling/Out1"
+        stateVoltageUd = masterVariablesPrefix + "BegrenzungRaumzeiger/U_d_limit"
+        stateVoltageUq = masterVariablesPrefix + "BegrenzungRaumzeiger/U_q_limit"
 
-        action = masterVariablesPrefix + DQDTCPrefix + "Action_Processing/EpsilonSafetyActionSelection/a_policy"
-        reward = masterVariablesPrefix + DQDTCPrefix + "Reward function/reward"
+
+        # stateVoltageUd_k1 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling0/Out1[0]"
+        # stateVoltageUq_k1 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling0/Out1[1]"
+        # stateVoltageUd_k2 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling1/Out1[0]"
+        # stateVoltageUq_k2 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling1/Out1[1]"
+        # stateVoltageUd_k3 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling2/Out1[0]"
+        # stateVoltageUq_k3 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling2/Out1[1]"
+
+        # statePositionScaledCos = masterVariablesPrefix + DQDTCPrefix + "Featurizer/position_scaling/Out1[0]"
+        # statePositionScaledSin = masterVariablesPrefix + DQDTCPrefix + "Featurizer/position_scaling/Out1[1]"
+        # stateCurrentStator = masterVariablesPrefix + DQDTCPrefix + "Featurizer/stator_current_scaling/i_s_norm"
+        # stateDCLinkVoltage = masterVariablesPrefix + DQDTCPrefix + "Featurizer/DC_link_scaling/u_DC_norm"
+        # stateTorqueRef = masterVariablesPrefix + DQDTCPrefix + "Featurizer/T_ref_scaling/Out1"
+
+        # action = masterVariablesPrefix + DQDTCPrefix + "Action_Processing/EpsilonSafetyActionSelection/a_policy"
+        # reward = masterVariablesPrefix + DQDTCPrefix + "Reward function/reward"
         #reward = masterVariablesPrefix + "Reward function/reward"
-        doneFlag = masterVariablesPrefix + DQDTCPrefix + "Reward function/done flag"
+        # doneFlag = masterVariablesPrefix + DQDTCPrefix + "Reward function/done flag"
         #doneFlag = masterVariablesPrefix + "Reward function/done flag"
 
         DemoMAPort.Write(
@@ -222,10 +233,10 @@ if __name__ == "__main__":
         print("Creating Capture...")
         DemoCapture = DemoMAPort.CreateCapture(masterTask)
         # create a list containing the names of the variables to be captured
-        DemoVariablesList = [learningRate, stateOmega, stateCurrentId, stateCurrentIq]
-        DemoVariablesList.extend([stateVoltageUd_k1, stateVoltageUq_k1, stateVoltageUd_k2, stateVoltageUq_k2, stateVoltageUd_k3, stateVoltageUq_k3])
-        DemoVariablesList.extend([statePositionScaledCos, statePositionScaledSin, stateCurrentStator])
-        DemoVariablesList.extend([stateDCLinkVoltage, stateTorqueRef, action, reward, doneFlag])
+        DemoVariablesList = [stateCurrentId, stateCurrentIq, stateTargetId, stateTargetIq]
+        DemoVariablesList.extend([stateVoltageUd, stateVoltageUq])
+        # DemoVariablesList.extend([statePositionScaledCos, statePositionScaledSin, stateCurrentStator])
+        DemoVariablesList.extend([stateTrajectoryIdx, stateTrajectoryReset])
         # The Python list hast to be converted to an .net Array
         DemoCapture.Variables = Array[str](DemoVariablesList)
 
@@ -280,42 +291,47 @@ if __name__ == "__main__":
 
         time.sleep(2.0)
 
-        print("Receiving architecture from remote RL server")
-        binary_architecture = weights_socket.recv(1024)
-        architecture = np.frombuffer(binary_architecture, dtype=np.float32)
-        experiment_name = "experiment_path"
-        print(experiment_name)
-        nn_decoder = NeuralNetworkDecoder(experiment_name=experiment_name,
-                                          architecture=architecture)
-        nn_parameter_paths = []
-        for _i in range(nn_decoder.nb_dense_layers):
-            nn_parameter_paths.append(masterVariablesPrefix + "Control_Scheme/Reconfigure_Network/Subsystem/w" + str(_i) + "/Value")
-            #nn_parameter_paths.append(masterVariablesPrefix + "Controller/Subsystem/w" + str(_i) + "/Value")
-        print(nn_parameter_paths)
+        ### This part is only relevant if we want so send network weights to the MLB
 
-        print("Receiving parameters from remote RL server")
-        weights = nn_decoder.recv_first_network(weights_socket)
+        # print("Receiving architecture from remote RL server")
+        # binary_architecture = weights_socket.recv(1024)
+        # architecture = np.frombuffer(binary_architecture, dtype=np.float32)
+        # experiment_name = "experiment_path"
+        # print(experiment_name)
+        # nn_decoder = NeuralNetworkDecoder(experiment_name=experiment_name,
+        #                                   architecture=architecture)
+        # nn_parameter_paths = []
+        # for _i in range(nn_decoder.nb_dense_layers):
+        #     nn_parameter_paths.append(masterVariablesPrefix + "Control_Scheme/Reconfigure_Network/Subsystem/w" + str(_i) + "/Value")
+        #     #nn_parameter_paths.append(masterVariablesPrefix + "Controller/Subsystem/w" + str(_i) + "/Value")
+        # print(nn_parameter_paths)
 
-        time.sleep(2.0)
+        # print("Receiving parameters from remote RL server")
+        # weights = nn_decoder.recv_first_network(weights_socket)
 
-        print("Receiving initialized learning_rate")
-        learning_rate = np.frombuffer(weights_socket.recv(4), dtype=np.float32)[0]
+        # time.sleep(2.0)
 
-        print("Initializing network on MicroLabBox")
-        for _i in range(nn_decoder.nb_dense_layers):
-            w = np.transpose(np.append(weights[_i * 2], [weights[_i * 2 + 1]], axis=0))
-            w_shape = np.shape(w)
-            if _i == 0:
-                w = np.append(w, np.zeros([w_shape[0], nn_decoder.nb_neurons_per_layer + 1 - w_shape[1]]), axis=1)
-            else:
-                w = np.append(w, np.zeros([nn_decoder.nb_neurons_per_layer - w_shape[0], w_shape[1]]), axis=0)
+        # print("Receiving initialized learning_rate")
+        # learning_rate = np.frombuffer(weights_socket.recv(4), dtype=np.float32)[0]
 
-            DemoMAPort.Write(
-                nn_parameter_paths[_i],
-                MyValueFactory.CreateFloatMatrixValue(
-                Array[Array[float]](w.tolist())
-                )
-            )
+        # print("Initializing network on MicroLabBox")
+        # for _i in range(nn_decoder.nb_dense_layers):
+        #     w = np.transpose(np.append(weights[_i * 2], [weights[_i * 2 + 1]], axis=0))
+        #     w_shape = np.shape(w)
+        #     if _i == 0:
+        #         w = np.append(w, np.zeros([w_shape[0], nn_decoder.nb_neurons_per_layer + 1 - w_shape[1]]), axis=1)
+        #     else:
+        #         w = np.append(w, np.zeros([nn_decoder.nb_neurons_per_layer - w_shape[0], w_shape[1]]), axis=0)
+
+        #     DemoMAPort.Write(
+        #         nn_parameter_paths[_i],
+        #         MyValueFactory.CreateFloatMatrixValue(
+        #         Array[Array[float]](w.tolist())
+        #         )
+        #     )
+
+        ### End
+
         # DemoMAPort.Write(
         #     learningRate,
         #     MyValueFactory.CreateFloatValue(learning_rate)
@@ -331,72 +347,83 @@ if __name__ == "__main__":
         # In case of this demo it is just printed into the console
         capture_count = 0
         print("STARTING")
-        weights_socket.send(bytes(1))
-        threading.Thread(target=nn_decoder.network_acquisition,
-                         args=(weights_socket, DemoMAPort, nn_parameter_paths, updateTime, MyValueFactory,)).start()
-        threading.Thread(target=nn_decoder.input_parser, args=()).start()
+        # weights_socket.send(bytes(1))
+        # threading.Thread(target=nn_decoder.network_acquisition,
+        #                  args=(weights_socket, DemoMAPort, nn_parameter_paths, updateTime, MyValueFactory,)).start()
+        # threading.Thread(target=nn_decoder.input_parser, args=()).start()
 
         while DemoCapture.State != CaptureState.eFINISHED:
             # time.sleep(0.00004) # sleep is for the weak
             DemoCaptureResult = DemoCapture.Fetch(False)
-            nn_decoder.pipeline_active = True
+            # nn_decoder.pipeline_active = False
 
             # --------------------------------------------------------------------------
             # Extract measured data from CaptureResult
             # --------------------------------------------------------------------------
 
-            omegaSignalValue = DemoCaptureResult.ExtractSignalValue(masterTask, stateOmega)
-            XAxisValues = convertIBaseValue(omegaSignalValue.XVector).Value
-            omegaValues = convertIBaseValue(omegaSignalValue.FcnValues).Value
+            # omegaSignalValue = DemoCaptureResult.ExtractSignalValue(masterTask, stateOmega)
+            # XAxisValues = convertIBaseValue(omegaSignalValue.XVector).Value
+            # omegaValues = convertIBaseValue(omegaSignalValue.FcnValues).Value
 
             currentIdSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateCurrentId)
             currentIdValues = convertIBaseValue(currentIdSignalValue.FcnValues).Value
             currentIqSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateCurrentIq)
             currentIqValues = convertIBaseValue(currentIqSignalValue.FcnValues).Value
 
-            voltageUd_k1SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUd_k1)
-            voltageUd_k1Values = convertIBaseValue(voltageUd_k1SignalValue.FcnValues).Value
-            voltageUq_k1SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUq_k1)
-            voltageUq_k1Values = convertIBaseValue(voltageUq_k1SignalValue.FcnValues).Value
+            targetIdSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateTargetId)
+            targetIdValues = convertIBaseValue(targetIdSignalValue.FcnValues).Value
+            targetIqSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateTargetIq)
+            targetIqValues = convertIBaseValue(targetIqSignalValue.FcnValues).Value
 
-            voltageUd_k2SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUd_k2)
-            voltageUd_k2Values = convertIBaseValue(voltageUd_k2SignalValue.FcnValues).Value
-            voltageUq_k2SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUq_k2)
-            voltageUq_k2Values = convertIBaseValue(voltageUq_k2SignalValue.FcnValues).Value
+            voltageUdSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUd)
+            voltageUdValues = convertIBaseValue(voltageUdSignalValue.FcnValues).Value
+            voltageUqSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUq)
+            voltageUqValues = convertIBaseValue(voltageUqSignalValue.FcnValues).Value
 
-            voltageUd_k3SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUd_k3)
-            voltageUd_k3Values = convertIBaseValue(voltageUd_k3SignalValue.FcnValues).Value
-            voltageUq_k3SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUq_k3)
-            voltageUq_k3Values = convertIBaseValue(voltageUq_k3SignalValue.FcnValues).Value
+            trajectoryIdxSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, trajectoryIdx)
+            trajectoryIdxValue = convertIBaseValue(trajectoryIdxSignalValue.FcnValues).Value
 
-            positionCosSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, statePositionScaledCos)
-            positionCosValues = convertIBaseValue(positionCosSignalValue.FcnValues).Value
+            trajectoryResetSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, trajectoryReset)
+            trajectoryResetValue = convertIBaseValue(trajectoryResetSignalValue.FcnValues).Value
 
-            positionSinSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, statePositionScaledSin)
-            positionSinValues = convertIBaseValue(positionSinSignalValue.FcnValues).Value
+            # voltageUd_k2SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUd_k2)
+            # voltageUd_k2Values = convertIBaseValue(voltageUd_k2SignalValue.FcnValues).Value
+            # voltageUq_k2SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUq_k2)
+            # voltageUq_k2Values = convertIBaseValue(voltageUq_k2SignalValue.FcnValues).Value
 
-            statorCurrentSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateCurrentStator)
-            statorCurrentValues = convertIBaseValue(statorCurrentSignalValue.FcnValues).Value
+            # voltageUd_k3SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUd_k3)
+            # voltageUd_k3Values = convertIBaseValue(voltageUd_k3SignalValue.FcnValues).Value
+            # voltageUq_k3SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUq_k3)
+            # voltageUq_k3Values = convertIBaseValue(voltageUq_k3SignalValue.FcnValues).Value
 
-            DCLinkVoltageSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateDCLinkVoltage)
-            DCLinkVoltageValue = convertIBaseValue(DCLinkVoltageSignalValue.FcnValues).Value
+            # positionCosSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, statePositionScaledCos)
+            # positionCosValues = convertIBaseValue(positionCosSignalValue.FcnValues).Value
 
-            torqueRefSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateTorqueRef)
-            torqueRefValues = convertIBaseValue(torqueRefSignalValue.FcnValues).Value
+            # positionSinSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, statePositionScaledSin)
+            # positionSinValues = convertIBaseValue(positionSinSignalValue.FcnValues).Value
+
+            # statorCurrentSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateCurrentStator)
+            # statorCurrentValues = convertIBaseValue(statorCurrentSignalValue.FcnValues).Value
+
+            # DCLinkVoltageSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateDCLinkVoltage)
+            # DCLinkVoltageValue = convertIBaseValue(DCLinkVoltageSignalValue.FcnValues).Value
+
+            # torqueRefSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateTorqueRef)
+            # torqueRefValues = convertIBaseValue(torqueRefSignalValue.FcnValues).Value
 
             # action, reward, done
-            actionSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, action)
-            actionValues = convertIBaseValue(actionSignalValue.FcnValues).Value
+            # actionSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, action)
+            # actionValues = convertIBaseValue(actionSignalValue.FcnValues).Value
 
-            rewardSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, reward)
-            rewardValues = convertIBaseValue(rewardSignalValue.FcnValues).Value
+            # rewardSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, reward)
+            # rewardValues = convertIBaseValue(rewardSignalValue.FcnValues).Value
 
-            doneFlagSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, doneFlag)
-            doneFlagValues = convertIBaseValue(doneFlagSignalValue.FcnValues).Value
+            # doneFlagSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, doneFlag)
+            # doneFlagValues = convertIBaseValue(doneFlagSignalValue.FcnValues).Value
 
             # housekeeping
-            newLearningRateSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, learningRate)
-            newLearningRateValue = convertIBaseValue(newLearningRateSignalValue.FcnValues).Value
+            # newLearningRateSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, learningRate)
+            # newLearningRateValue = convertIBaseValue(newLearningRateSignalValue.FcnValues).Value
 
 
             # --------------------------------------------------------------------------
@@ -405,10 +432,8 @@ if __name__ == "__main__":
 
             # For MP applications, the number of samples fetched by the masterApplication and the slaveApplication may be different.
             # To avoid IndexOutOfBounds errors, the lower value for NSamples is used. For single processor platforms, both values are the same.
-            for date in zip(XAxisValues, newLearningRateValue, omegaValues, currentIdValues, currentIqValues,
-                            voltageUd_k1Values, voltageUq_k1Values,
-                            voltageUd_k2Values, voltageUq_k2Values,
-                            voltageUd_k3Values, voltageUq_k3Values,
+            for date in zip(currentIdValues, currentIqValues,
+                            voltageUdValues, voltageUqValues,
                             positionCosValues, positionSinValues, statorCurrentValues,
                             DCLinkVoltageValue, torqueRefValues, actionValues, rewardValues, doneFlagValues):
 
