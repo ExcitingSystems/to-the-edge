@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PortConfigurations xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 	<MAPortConfig>
-        <SystemDescriptionFile>Path_To_SDF</SystemDescriptionFile>
+        <SystemDescriptionFile>C:\Users\Public\Documents\MATLAB\PMSM_Simulink_Modell\pmsm_test.sdf</SystemDescriptionFile>
         <!-- The processor board on which the application is running, e.g. DS1006, SCALEXIO, or VEOS (DS1202==MicroLabBox) -->
 		<PlatformName>DS1202</PlatformName>
 	</MAPortConfig>

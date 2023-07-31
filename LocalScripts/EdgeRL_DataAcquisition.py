@@ -90,7 +90,7 @@ MAPortConfigFile = r"MAPortConfigDS1202.xml"
 # Note: the default task name is "HostService" for PHS bus systems, "Periodic Task 1" for VEOS systems
 #Task = "HostService"
 
-Task = "RL_Reforce_Main"  # Specified in the Data Capture Block in Simulink
+Task = "ML_Expert_Main"  # Specified in the Data Capture Block in Simulink
 # ------------------------------------------------------------------------------------------------
 
 
@@ -182,7 +182,7 @@ if __name__ == "__main__":
 
 
         # housekeeping
-        manualCaptureTrigger = masterVariablesPrefix +  "SF_Sollwertgeber/manual_Trigger"
+        manualCaptureTrigger = masterVariablesPrefix +  "SF_Sollwertgeber/manuel_trigger"
         #manualCaptureTrigger = masterVariablesPrefix + DQDTCPrefix + "Manual_Trigger/Value"
         # learningRate = masterVariablesPrefix + DQDTCPrefix + "learning_rate/Out1"
         #learningRate = masterVariablesPrefix + DQDTCPrefix + "Learning_Rate/Value"
@@ -199,8 +199,8 @@ if __name__ == "__main__":
         trajectoryReset = masterVariablesPrefix + "SF_Sollwertgeber/reset"
         # stateTrajectoryEpisodeEnd = masterVariablesPrefix + "Sollwertgeber/EpisodeEnd"
 
-        stateVoltageUd = masterVariablesPrefix + "BegrenzungRaumzeiger/U_d_limit"
-        stateVoltageUq = masterVariablesPrefix + "BegrenzungRaumzeiger/U_q_limit"
+        stateVoltageUd = masterVariablesPrefix + "BegrenzungRaumzeigers/U_d_limit"
+        stateVoltageUq = masterVariablesPrefix + "BegrenzungRaumzeigers/U_q_limit"
 
 
         # stateVoltageUd_k1 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling0/Out1[0]"
@@ -222,11 +222,6 @@ if __name__ == "__main__":
         # doneFlag = masterVariablesPrefix + DQDTCPrefix + "Reward function/done flag"
         #doneFlag = masterVariablesPrefix + "Reward function/done flag"
 
-        DemoMAPort.Write(
-            updateTime,
-            MyValueFactory.CreateFloatValue(np.finfo(float).max)
-        )
-
         # --------------------------------------------------------------------------
         # Create and initialize Capture object
         # --------------------------------------------------------------------------
@@ -236,7 +231,7 @@ if __name__ == "__main__":
         DemoVariablesList = [stateCurrentId, stateCurrentIq, stateTargetId, stateTargetIq]
         DemoVariablesList.extend([stateVoltageUd, stateVoltageUq])
         # DemoVariablesList.extend([statePositionScaledCos, statePositionScaledSin, stateCurrentStator])
-        DemoVariablesList.extend([stateTrajectoryIdx, stateTrajectoryReset])
+        DemoVariablesList.extend([trajectoryIdx, trajectoryReset])
         # The Python list hast to be converted to an .net Array
         DemoCapture.Variables = Array[str](DemoVariablesList)
 
