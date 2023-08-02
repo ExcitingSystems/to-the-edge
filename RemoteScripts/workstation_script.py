@@ -1,11 +1,11 @@
 """This script runs the RemoteDDPGAgent on the workstation."""
 
-from EdgeRL_kerasRL2.remote_dqn_agent import RemoteDQNAgent
-import tensorflow as tf
-from tensorflow.keras.layers import Dense, Flatten, LeakyReLU
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
-from rl.memory import SequentialMemory
+# from EdgeRL_kerasRL2.remote_dqn_agent import RemoteDQNAgent
+# import tensorflow as tf
+# from tensorflow.keras.layers import Dense, Flatten, LeakyReLU
+# from tensorflow.keras.models import Sequential
+# from tensorflow.keras.optimizers import Adam
+# from rl.memory import SequentialMemory
 import threading
 import numpy as np
 
@@ -20,12 +20,13 @@ def input_parser(*objects_to_close):
 
 if __name__ == '__main__':
     #tf.compat.v1.disable_eager_execution() #? needed? y/n?
-    address = # IP address of this workstation
+    address = "131.234.172.184" # IP address of this workstation
 
-    nb_actions = 8
-    observation_length = 14
+    # nb_actions = 8
+    observation_length = 2
     window_length = 1
 
+    # Parameters
     nb_layers = 10
     dqn_neurons = 90
     #aqtor_neurons = 90
@@ -35,27 +36,27 @@ if __name__ == '__main__':
     gamma = 0.85
 
     ### DQN
-    model = Sequential()
-    model.add(Flatten(input_shape=(window_length, observation_length)))
-    for i in range(nb_layers-1):
-        model.add(Dense(dqn_neurons, activation='linear'))
-        model.add(LeakyReLU(alpha=leaky_relu_parameter))
-    raw_q = Dense(nb_actions, activation='linear')(model(model.input))
+    # model = Sequential()
+    # model.add(Flatten(input_shape=(window_length, observation_length)))
+    # for i in range(nb_layers-1):
+    #     model.add(Dense(dqn_neurons, activation='linear'))
+    #     model.add(LeakyReLU(alpha=leaky_relu_parameter))
+    # raw_q = Dense(nb_actions, activation='linear')(model(model.input))
 
-    model = tf.keras.Model(model.inputs, raw_q)
-
-
+    # model = tf.keras.Model(model.inputs, raw_q)
 
 
-    weights = model.get_weights()
-    for i, w in enumerate(weights):
-        weights[i] = 1 * w
-    model.set_weights(weights)
 
-    memory = SequentialMemory(
-        limit=memory_buffer_size,
-        window_length=window_length,
-    )
+
+    # weights = model.get_weights()
+    # for i, w in enumerate(weights):
+    #     weights[i] = 1 * w
+    # model.set_weights(weights)
+
+    # memory = SequentialMemory(
+    #     limit=memory_buffer_size,
+    #     window_length=window_length,
+    # )
 
     agent = RemoteDQNAgent(
         # pipeline parameters
