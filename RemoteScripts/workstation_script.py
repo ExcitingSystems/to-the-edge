@@ -6,11 +6,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 from remote_nc import RemoteDynamicComposite
-from utils.baseline_foc import ClassicController
-from utils.env import FastPMSM
-from utils.topology import ControlledPMSM, DynamicComposite, ACTIVATION_FUNCS
-from utils.data_storage import DataPaths
-from utils.experiment import get_reference_data
+from mlace.utils.baseline_foc import ClassicController
+from mlace.utils.env import FastPMSM
+from mlace.utils.topology import ControlledPMSM, DynamicComposite, ACTIVATION_FUNCS
+from mlace.utils.data_storage import DataPaths
+from mlace.utils.experiment import get_reference_data
 
 
 # Init Connection, NC and Internal Model

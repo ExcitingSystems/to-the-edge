@@ -10,7 +10,7 @@ import socket
 import struct
 import select
 import sys
-from utils.topology import DynamicComposite
+from mlace.utils.topology import DynamicComposite
 
 
 class RemoteDynamicComposite(DynamicComposite):
