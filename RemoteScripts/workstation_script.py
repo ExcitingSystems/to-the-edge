@@ -1,13 +1,37 @@
 """This script runs the RemoteDDPGAgent on the workstation."""
 
-from EdgeRL_kerasRL2.remote_dqn_agent import RemoteDQNAgent
-import tensorflow as tf
-from tensorflow.keras.layers import Dense, Flatten, LeakyReLU
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
-from rl.memory import SequentialMemory
 import threading
+
 import numpy as np
+import torch
+import torch.nn as nn
+from remote_nc import RemoteDynamicComposite
+from mlace.utils.baseline_foc import ClassicController
+from mlace.utils.env import FastPMSM
+from mlace.utils.topology import ControlledPMSM, DynamicComposite, ACTIVATION_FUNCS
+from mlace.utils.data_storage import DataPaths
+from mlace.utils.experiment import get_reference_data
+
+
+# Init Connection, NC and Internal Model
+
+# Start Connection
+# -> Check if connection is stable
+###
+# Learn SysID Model
+# -> Store sended data till one batch is filled up
+# --> [I_d, I_q, Idx] (Ground Trouth)
+# -> Run simulation
+# --> Internalmodel is controlled by PI controller
+# --> Produces diffrentiable trajectory
+# --> GT and DT are used to compute gradient
+# --> Update prameter models
+###
+# Train NC
+# -> NC acting on the learned internal model
+# -> Target should be given by an PI controller
+# -> Try to follow reference signal
+# --> Reference should keept constant
 
 
 def input_parser(*objects_to_close):
@@ -18,66 +42,67 @@ def input_parser(*objects_to_close):
     for close in objects_to_close:
         close.close()
 
-if __name__ == '__main__':
-    #tf.compat.v1.disable_eager_execution() #? needed? y/n?
-    address = # IP address of this workstation
 
-    nb_actions = 8
-    observation_length = 14
+if __name__ == '__main__':
+    # tf.compat.v1.disable_eager_execution() #? needed? y/n?
+
+    mode = "SysID"
+
+    address = "131.234.172.184"  # IP address of this workstation
+
+    # nb_actions = 8
+    observation_length = 2
     window_length = 1
 
-    nb_layers = 10
-    dqn_neurons = 90
-    #aqtor_neurons = 90
-    leaky_relu_parameter = 0.3
-    learning_rate = 1e-3
-    memory_buffer_size = 400000
-    gamma = 0.85
+    saturated_mode = False
+    batch_size = 64
 
-    ### DQN
-    model = Sequential()
-    model.add(Flatten(input_shape=(window_length, observation_length)))
-    for i in range(nb_layers-1):
-        model.add(Dense(dqn_neurons, activation='linear'))
-        model.add(LeakyReLU(alpha=leaky_relu_parameter))
-    raw_q = Dense(nb_actions, activation='linear')(model(model.input))
+    # Parameters for reference loading
+    n_ref_trajectories = 110_000
+    episode_len = 201
+    load_data = True
 
-    model = tf.keras.Model(model.inputs, raw_q)
+    # Load same references
+    device = torch.device('cpu')
+    dp = DataPaths()
+    x_star = get_reference_data(
+        load_data, dp.REF_DATA_PATH, n_ref_trajectories, episode_len, device)
 
+    # Time span
+    ts = 1e-4  # env.physical_system.tau
+    t0, tf = 0, 0.02  # initial and final time for controlling the system
+    t = torch.arange(t0, tf+ts, ts).to(device, dtype=torch.float32)
 
+    # create env for easy access to the parameters; env itself is not in use
+    env = FastPMSM(x_star=x_star.cpu().numpy(),
+                   batch_size=batch_size, saturated=saturated_mode)
 
+    internal_model = ControlledPMSM(t, env.me_omega,
+                                    saturated=saturated_mode,
+                                    is_general_system=False).to(device)
 
-    weights = model.get_weights()
-    for i, w in enumerate(weights):
-        weights[i] = 1 * w
-    model.set_weights(weights)
+    # Choose controller
+    if mode == "SysID":
+        cntrl_mdl = ClassicController(env, batch_size)
+    else:
+        cntrl_mdl = nn.Sequential(nn.Linear(DynamicComposite.n_input_fe(), 225), ACTIVATION_FUNCS.get('sinus')(),
+                                  nn.Linear(225, 113), nn.ReLU(),
+                                  nn.Linear(113, DynamicComposite.N_OUTPUT)).to(device)
 
-    memory = SequentialMemory(
-        limit=memory_buffer_size,
-        window_length=window_length,
-    )
-
-    agent = RemoteDQNAgent(
+    agent = RemoteDynamicComposite(
         # pipeline parameters
         address=address,
         data_port=1030,
         weights_port=1031,
         observation_length=observation_length,
-        model=model,
+        model=internal_model,
         step_offset=0,
 
         # agent parameters
-        nb_actions=nb_actions,
-        gamma=gamma,
-        memory=memory,
-        batch_size=32,
-        target_model_update=0.2,
-        memory_interval=1,
-        enable_double_dqn=False,
-        nb_steps_warmup=32,
-        train_interval=1,
-        optimizer=Adam,
-        learning_rate=learning_rate
+        t=t,
+        cntrl_mdl=cntrl_mdl,
+        int_mdl=internal_model,
+        x_star=x_star
     )
 
     threading.Thread(target=input_parser, args=(agent,)).start()  # needed?
