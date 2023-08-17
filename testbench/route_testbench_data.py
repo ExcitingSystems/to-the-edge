@@ -36,22 +36,20 @@ Date:        May 2021
 Copyright 2021, dSPACE GmbH. All rights reserved.
 """
 
-# Provide print function with parameter end
-from __future__ import print_function
 
-import select
-
+import json
 import clr
-import os, sys, time
+import time
 
 # for TCP/IP connection
 import socket
 import numpy as np
 import struct
-from interface_functions import NeuralNetworkDecoder
+#from interface_functions import NeuralNetworkDecoder
 import threading
+from pathlib import Path
 
-TCP_IP = "131.234.172.184" # IP Address of the workstation computer
+TCP_IP = "131.234.172.167" # IP Address of the workstation computer
 TCP_PORT_DATA = 1030  #
 TCP_PORT_WEIGHTS = 1031  #
 BUFFER_SIZE = 988 # = floor(1024 // (measurement_size * 4)) * (measurement_size * 4) # <- 4 = nb of bits per float
@@ -82,9 +80,7 @@ from DemoHelpers import *
 # ------------------------------------------------------------------------------------------------
 # Set IsMPApplication to true if you are using a multiprocessor platform
 IsMPSystem = False
-# Use an MAPort configuration file that is suitable for your platform and simulation application
-# See the folder Common\PortConfigurations for some predefined configuration files
-MAPortConfigFile = r"MAPortConfigDS1202.xml"
+
 
 # Set the name of the task here (specified in the application's TRC file)
 # Note: the default task name is "HostService" for PHS bus systems, "Periodic Task 1" for VEOS systems
@@ -108,25 +104,27 @@ if IsMPSystem:
 else:
     masterTaskPrefix = ""
     slaveTaskPrefix = ""
-    masterVariablesPrefix = "ds1202()://Model Root/"
-    slaveVariablesPrefix = "ds1202()://Model Root/"
+    masterVariablesPrefix = mvp = "DS1202 MicroLabBox()://Model Root"
+    slaveVariablesPrefix = mvp
 
-masterTask = masterTaskPrefix + Task
-slaveTask = slaveTaskPrefix + Task
+masterTask = f"{masterTaskPrefix}/{Task}" if masterTaskPrefix != "" else Task
+slaveTask = f"{slaveTaskPrefix}/{Task}" if slaveTaskPrefix != "" else Task
 
-# --------------------------------------------------------------------------
-# Set the working directory for this demo script
-# --------------------------------------------------------------------------
-WorkingDir = os.path.dirname(sys.argv[0])
-if not os.path.isdir(WorkingDir):
-    WorkingDir = os.getcwd()
-if not os.path.isdir(WorkingDir):
-    os.mkdir(WorkingDir)
+# Use an MAPort configuration file that is suitable for your platform and simulation application
+# See the folder Common\PortConfigurations for some predefined configuration files
+MAPort_cfg_file = r"MAPortConfigDS1202.xml"
 
-MAPortConfigFile = os.path.join(WorkingDir, MAPortConfigFile)
+
 
 if __name__ == "__main__":
-
+    # find config file
+    MAPort_cfg_path = None
+    for p in Path.cwd().glob("**/*"):
+        if MAPort_cfg_file in str(p):
+            MAPort_cfg_path = p
+            print(f"Config file found at {MAPort_cfg_path}")
+    if MAPort_cfg_path is None:
+        raise FileNotFoundError(f"File {MAPort_cfg_file} not found")
     DemoCapture = None
     DemoMAPort = None
 
@@ -157,117 +155,73 @@ if __name__ == "__main__":
         # --------------------------------------------------------------------------
         # Create and configure an MAPort object and start the simulation
         # --------------------------------------------------------------------------
-        print("Creating MAPort instance...")
+        print("Creating MAPort instance...", end='')
         # Create an MAPort object using the MAPortFactory
         DemoMAPort = MyMAPortFactory.CreateMAPort("DemoMAPort")
-        print("...done.\n")
+        print("...done.")
         # Load the MAPort configuration
-        print("Configuring MAPort...")
-        DemoMAPortConfig = DemoMAPort.LoadConfiguration(MAPortConfigFile)
+        print("Configuring MAPort...", end='')
+        DemoMAPortConfig = DemoMAPort.LoadConfiguration(str(MAPort_cfg_path))
         # Apply the MAPort configuration
         DemoMAPort.Configure(DemoMAPortConfig, False)
-        print("...done.\n")
+        print("...done.")
         if DemoMAPort.State != MAPortState.eSIMULATION_RUNNING:
             # Start the simulation
-            print("Starting simulation...")
+            print("Starting simulation...", end='')
             DemoMAPort.StartSimulation()
-            print("...done.\n")
+            print("...done.")
 
         # ----------------------------------------------------------------------
         # Define the variables to be captured
         # ----------------------------------------------------------------------
-
-        DQDTCPrefix = "Control_Scheme/DQ_DTC/"
-        #DQDTCPrefix = "Controller/"
-
-
-        # housekeeping
-        manualCaptureTrigger = masterVariablesPrefix +  "SF_Sollwertgeber/manuel_trigger"
-        #manualCaptureTrigger = masterVariablesPrefix + DQDTCPrefix + "Manual_Trigger/Value"
-        # learningRate = masterVariablesPrefix + DQDTCPrefix + "learning_rate/Out1"
-        #learningRate = masterVariablesPrefix + DQDTCPrefix + "Learning_Rate/Value"
-        # updateTime = masterVariablesPrefix + DQDTCPrefix + "Update_Time/Value"
-
-        # measurement
-        # stateOmega = masterVariablesPrefix + DQDTCPrefix + "Featurizer/omega_me_scaling/Out1"
-        stateCurrentId = masterVariablesPrefix + "I_dq/I_d_ist"
-        stateCurrentIq = masterVariablesPrefix + "I_dq/I_q_ist"
-        # stateTargetId = masterVariablesPrefix + "I_d_soll/Out1"
-        # stateTargetIq = masterVariablesPrefix + "I_q_soll/Out1"
-
-        trajectoryIdx = masterVariablesPrefix + "SF_Sollwertgeber/Idx"
-        trajectoryReset = masterVariablesPrefix + "SF_Sollwertgeber/reset"
-        # stateTrajectoryEpisodeEnd = masterVariablesPrefix + "Sollwertgeber/EpisodeEnd"
-
-        # stateVoltageUd = masterVariablesPrefix + "BegrenzungRaumzeigers/U_d_limit"
-        # stateVoltageUq = masterVariablesPrefix + "BegrenzungRaumzeigers/U_q_limit"
-
-
-        # stateVoltageUd_k1 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling0/Out1[0]"
-        # stateVoltageUq_k1 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling0/Out1[1]"
-        # stateVoltageUd_k2 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling1/Out1[0]"
-        # stateVoltageUq_k2 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling1/Out1[1]"
-        # stateVoltageUd_k3 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling2/Out1[0]"
-        # stateVoltageUq_k3 = masterVariablesPrefix + DQDTCPrefix + "Featurizer/voltage_scaling2/Out1[1]"
-
-        # statePositionScaledCos = masterVariablesPrefix + DQDTCPrefix + "Featurizer/position_scaling/Out1[0]"
-        # statePositionScaledSin = masterVariablesPrefix + DQDTCPrefix + "Featurizer/position_scaling/Out1[1]"
-        # stateCurrentStator = masterVariablesPrefix + DQDTCPrefix + "Featurizer/stator_current_scaling/i_s_norm"
-        # stateDCLinkVoltage = masterVariablesPrefix + DQDTCPrefix + "Featurizer/DC_link_scaling/u_DC_norm"
-        # stateTorqueRef = masterVariablesPrefix + DQDTCPrefix + "Featurizer/T_ref_scaling/Out1"
-
-        # action = masterVariablesPrefix + DQDTCPrefix + "Action_Processing/EpsilonSafetyActionSelection/a_policy"
-        # reward = masterVariablesPrefix + DQDTCPrefix + "Reward function/reward"
-        #reward = masterVariablesPrefix + "Reward function/reward"
-        # doneFlag = masterVariablesPrefix + DQDTCPrefix + "Reward function/done flag"
-        #doneFlag = masterVariablesPrefix + "Reward function/done flag"
+        # Info: Available variables can be read out with DemoMAPort.VariableNames
+        start_var = f"{mvp}/Start/start"
+        i_d_soll = f"{mvp}/I_d_soll/Out1"
+        i_q_soll = f"{mvp}/I_q_soll/Out1"
+        i_d_ist = f"{mvp}/I_dq/I_d_ist"
+        i_q_ist = f"{mvp}/I_dq/I_q_ist"
+        var_capture_l = [i_d_soll, i_q_soll, i_d_ist, i_q_ist] 
 
         # --------------------------------------------------------------------------
         # Create and initialize Capture object
         # --------------------------------------------------------------------------
-        print("Creating Capture...")
+        print("Creating Capture...", end='')
         DemoCapture = DemoMAPort.CreateCapture(masterTask)
-        # create a list containing the names of the variables to be captured
-        DemoVariablesList = [stateCurrentId, stateCurrentIq] # , stateTargetId, stateTargetIq
-        # DemoVariablesList.extend([stateVoltageUd, stateVoltageUq])
-        # DemoVariablesList.extend([statePositionScaledCos, statePositionScaledSin, stateCurrentStator])
-        DemoVariablesList.extend([trajectoryIdx, trajectoryReset])
-        # The Python list hast to be converted to an .net Array
-        DemoCapture.Variables = Array[str](DemoVariablesList)
+        DemoCapture.Variables = Array[str](var_capture_l)
 
         # In this demo a higher downsampling is used to reduce the number of captured data samples
         # Only every 20th measured sample is captured
         DemoCapture.Downsampling = 1
-        print("...done.\n")
+        print("...done.")
 
         # --------------------------------------------------------------------------
         # Create one ConditionWatcher and one DurationWatcher and set start- and stop triggers
         # --------------------------------------------------------------------------
         # Create Defines for ConditionWatchers
         DemoDefines = Dictionary[str, str]()
-        DemoDefines.Add('CaptureTrigger', manualCaptureTrigger)
+        DemoDefines.Add('CaptureTrigger', start_var)
 
         # Negative Delay: Start Capturing 0.1s before StartTriggerCondition is met
         StartDelay = MyDurationFactory.CreateTimeSpanDuration(0.0)
-        print("Creating ConditionWatcher...")
+        print("Creating ConditionWatcher...", end='')
         DemoStartWatcher = MyWatcherFactory.CreateConditionWatcher("posedge(CaptureTrigger,0.5)", DemoDefines)
         DemoCapture.SetStartTrigger(DemoStartWatcher, StartDelay)
-        print("...done.\n")
+        print("...done.")
 
-        print("Creating DurationWatcher...")
+        print("Creating DurationWatcher...", end="")
         StopDelay = MyDurationFactory.CreateTimeSpanDuration(0)
         captureTime = 1
         DemoStopWatcher = MyWatcherFactory.CreateConditionWatcher("negedge(CaptureTrigger,0.5)", DemoDefines)
         #DemoStopWatcher = MyWatcherFactory.CreateDurationWatcherByTimeSpan(captureTime)
         DemoCapture.SetStopTrigger(DemoStopWatcher, StopDelay)
-        print("...done.\n")
+        print("...done.")
 
         # --------------------------------------------------------------------------
         # Create CaptureResultMemoryWriter object
         # --------------------------------------------------------------------------
-        print("Creating CaptureResultMemoryWriter...")
+        print("Creating CaptureResultMemoryWriter...", end='')
         DemoCaptureWriter = MyCapturingFactory.CreateCaptureResultMemoryWriter()
-        print("...done.\n")
+        print("...done.")
 
         # --------------------------------------------------------------------------
         # Declare a CaptureResult 
@@ -281,7 +235,7 @@ if __name__ == "__main__":
         DemoCapture.Start(DemoCaptureWriter)
 
         # establish socket for TCP/IP
-        data_socket.connect((TCP_IP, TCP_PORT_DATA))
+        #data_socket.connect((TCP_IP, TCP_PORT_DATA))
         # weights_socket.connect((TCP_IP, TCP_PORT_WEIGHTS))
 
         time.sleep(2.0)
@@ -347,79 +301,21 @@ if __name__ == "__main__":
         #                  args=(weights_socket, DemoMAPort, nn_parameter_paths, updateTime, MyValueFactory,)).start()
         # threading.Thread(target=nn_decoder.input_parser, args=()).start()
 
+        def extract_value(captured_result, var_lbl):
+            x = captured_result.ExtractSignalValue(slaveTask, var_lbl)
+            return convertIBaseValue(x.FcnValues).Value
+
         while DemoCapture.State != CaptureState.eFINISHED:
             # time.sleep(0.00004) # sleep is for the weak
-            DemoCaptureResult = DemoCapture.Fetch(False)
+            demo_captured_result = DemoCapture.Fetch(False)
             # nn_decoder.pipeline_active = False
 
             # --------------------------------------------------------------------------
             # Extract measured data from CaptureResult
             # --------------------------------------------------------------------------
 
-            # omegaSignalValue = DemoCaptureResult.ExtractSignalValue(masterTask, stateOmega)
-            # XAxisValues = convertIBaseValue(omegaSignalValue.XVector).Value
-            # omegaValues = convertIBaseValue(omegaSignalValue.FcnValues).Value
-
-            currentIdSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateCurrentId)
-            currentIdValues = convertIBaseValue(currentIdSignalValue.FcnValues).Value
-            currentIqSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateCurrentIq)
-            currentIqValues = convertIBaseValue(currentIqSignalValue.FcnValues).Value
-
-            # targetIdSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateTargetId)
-            # targetIdValues = convertIBaseValue(targetIdSignalValue.FcnValues).Value
-            # targetIqSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateTargetIq)
-            # targetIqValues = convertIBaseValue(targetIqSignalValue.FcnValues).Value
-
-            # voltageUdSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUd)
-            # voltageUdValues = convertIBaseValue(voltageUdSignalValue.FcnValues).Value
-            # voltageUqSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUq)
-            # voltageUqValues = convertIBaseValue(voltageUqSignalValue.FcnValues).Value
-
-            trajectoryIdxSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, trajectoryIdx)
-            trajectoryIdxValue = convertIBaseValue(trajectoryIdxSignalValue.FcnValues).Value
-
-            trajectoryResetSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, trajectoryReset)
-            trajectoryResetValue = convertIBaseValue(trajectoryResetSignalValue.FcnValues).Value
-
-            # voltageUd_k2SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUd_k2)
-            # voltageUd_k2Values = convertIBaseValue(voltageUd_k2SignalValue.FcnValues).Value
-            # voltageUq_k2SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUq_k2)
-            # voltageUq_k2Values = convertIBaseValue(voltageUq_k2SignalValue.FcnValues).Value
-
-            # voltageUd_k3SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUd_k3)
-            # voltageUd_k3Values = convertIBaseValue(voltageUd_k3SignalValue.FcnValues).Value
-            # voltageUq_k3SignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateVoltageUq_k3)
-            # voltageUq_k3Values = convertIBaseValue(voltageUq_k3SignalValue.FcnValues).Value
-
-            # positionCosSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, statePositionScaledCos)
-            # positionCosValues = convertIBaseValue(positionCosSignalValue.FcnValues).Value
-
-            # positionSinSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, statePositionScaledSin)
-            # positionSinValues = convertIBaseValue(positionSinSignalValue.FcnValues).Value
-
-            # statorCurrentSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateCurrentStator)
-            # statorCurrentValues = convertIBaseValue(statorCurrentSignalValue.FcnValues).Value
-
-            # DCLinkVoltageSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateDCLinkVoltage)
-            # DCLinkVoltageValue = convertIBaseValue(DCLinkVoltageSignalValue.FcnValues).Value
-
-            # torqueRefSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, stateTorqueRef)
-            # torqueRefValues = convertIBaseValue(torqueRefSignalValue.FcnValues).Value
-
-            # action, reward, done
-            # actionSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, action)
-            # actionValues = convertIBaseValue(actionSignalValue.FcnValues).Value
-
-            # rewardSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, reward)
-            # rewardValues = convertIBaseValue(rewardSignalValue.FcnValues).Value
-
-            # doneFlagSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, doneFlag)
-            # doneFlagValues = convertIBaseValue(doneFlagSignalValue.FcnValues).Value
-
-            # housekeeping
-            # newLearningRateSignalValue = DemoCaptureResult.ExtractSignalValue(slaveTask, learningRate)
-            # newLearningRateValue = convertIBaseValue(newLearningRateSignalValue.FcnValues).Value
-
+            fetched_signals_arr = np.array([extract_value(demo_captured_result, s) for s in var_capture_l],
+                                            dtype=np.float32).T
 
             # --------------------------------------------------------------------------
             # Write the fetched data samples into the console window
@@ -427,14 +323,9 @@ if __name__ == "__main__":
 
             # For MP applications, the number of samples fetched by the masterApplication and the slaveApplication may be different.
             # To avoid IndexOutOfBounds errors, the lower value for NSamples is used. For single processor platforms, both values are the same.
-            for date in zip(currentIdValues, currentIqValues,
-                            # voltageUdValues, voltageUqValues,
-                            trajectoryIdxValue, trajectoryResetValue):
-
-                # convert float data list to bytes
-                b = bytes()
-                b = b.join((struct.pack('f', val) for val in date))
-
+            for row in fetched_signals_arr:
+                # convert float array to bytes
+                b = row.tobytes()
                 # send bytes
                 if (len(b) <= BUFFER_SIZE):
                     data_socket.send(b)
@@ -444,9 +335,6 @@ if __name__ == "__main__":
 
                     if len(b) > ((i + 1) * BUFFER_SIZE):
                         data_socket.send(b[(i + 1) * BUFFER_SIZE:])
-
-                #remove data from byte stream for next data acquisition
-                b = bytes()
 
             capture_count += 1
 
