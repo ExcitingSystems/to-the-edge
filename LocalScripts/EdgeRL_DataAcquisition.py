@@ -51,7 +51,7 @@ import struct
 from interface_functions import NeuralNetworkDecoder
 import threading
 
-TCP_IP = "131.234.172.167" # IP Address of the workstation computer
+TCP_IP = "131.234.172.184" # IP Address of the workstation computer
 TCP_PORT_DATA = 1030  #
 TCP_PORT_WEIGHTS = 1031  #
 BUFFER_SIZE = 988 # = floor(1024 // (measurement_size * 4)) * (measurement_size * 4) # <- 4 = nb of bits per float
