@@ -104,7 +104,7 @@ if IsMPSystem:
 else:
     masterTaskPrefix = ""
     slaveTaskPrefix = ""
-    masterVariablesPrefix = mvp = "DS1202 MicroLabBox()://Model Root"
+    masterVariablesPrefix = mvp = "ds1202()://Model Root"
     slaveVariablesPrefix = mvp
 
 masterTask = f"{masterTaskPrefix}/{Task}" if masterTaskPrefix != "" else Task
@@ -180,7 +180,11 @@ if __name__ == "__main__":
         i_q_soll = f"{mvp}/I_q_soll/Out1"
         i_d_ist = f"{mvp}/I_dq/I_d_ist"
         i_q_ist = f"{mvp}/I_dq/I_q_ist"
-        var_capture_l = [i_d_soll, i_q_soll, i_d_ist, i_q_ist] 
+        u_d = f"{mvp}/BegrenzungRaumzeigers/U_d_limit"
+        u_q = f"{mvp}/BegrenzungRaumzeigers/U_q_limit"
+        omega = f"{mvp}/Omega/Out1"
+        manual_trigger = f"{mvp}/SF_Sollwertgeber/manual_trigger"
+        var_capture_l = [i_d_soll, i_q_soll, i_d_ist, i_q_ist, u_d, u_q, omega, manual_trigger]
 
         # --------------------------------------------------------------------------
         # Create and initialize Capture object
@@ -303,7 +307,14 @@ if __name__ == "__main__":
 
         def extract_value(captured_result, var_lbl):
             x = captured_result.ExtractSignalValue(slaveTask, var_lbl)
-            return convertIBaseValue(x.FcnValues).Value
+            y = [i for i in convertIBaseValue(x.FcnValues).Value]
+            return y
+        
+        def postprocessing(signal, trajectory_len=201):
+            mask = signal[:,-1] # get manual trigger 
+            datapoints = signal.shape[0]
+            cut_off = datapoints % trajectory_len # only multiples of trajectory length
+            return signal[mask][:-cut_off] # cut off after a multiple is reached
 
         while DemoCapture.State != CaptureState.eFINISHED:
             # time.sleep(0.00004) # sleep is for the weak
@@ -314,8 +325,13 @@ if __name__ == "__main__":
             # Extract measured data from CaptureResult
             # --------------------------------------------------------------------------
 
+            
+
             fetched_signals_arr = np.array([extract_value(demo_captured_result, s) for s in var_capture_l],
                                             dtype=np.float32).T
+            
+
+            fetched_signals_arr = postprocessing(fetched_signals_arr)
 
             # --------------------------------------------------------------------------
             # Write the fetched data samples into the console window
