@@ -42,12 +42,14 @@ import clr
 import time
 
 # for TCP/IP connection
+import asyncio
 import socket
 import numpy as np
 import struct
 #from interface_functions import NeuralNetworkDecoder
 import threading
 from pathlib import Path
+from address import ADDRESS_SERVER, PORT_SERVER
 
 TCP_IP = "131.234.172.167" # IP Address of the workstation computer
 TCP_PORT_DATA = 1030  #
@@ -311,13 +313,43 @@ if __name__ == "__main__":
             return y
         
         def postprocessing(signal, trajectory_len=201):
-            mask = signal[:,-1] # get manual trigger 
-            datapoints = signal.shape[0]
+
+            mask = signal[:,-1].astype('bool') # get manual trigger
+            datapoints = signal[mask].shape[0]
             cut_off = datapoints % trajectory_len # only multiples of trajectory length
             return signal[mask][:-cut_off] # cut off after a multiple is reached
+        
+        async def tcp_echo_client(message):
+            reader, writer = await asyncio.open_connection(
+                ADDRESS_SERVER, PORT_SERVER)
+
+            print(f'Send: {message!r}')
+            writer.write(message.encode())
+            await writer.drain()
+
+            # data = await reader.read(100)
+            # print(f'Received: {data.decode()!r}')
+
+            print('Close the connection')
+            writer.close()
+            await writer.wait_closed()
+
+        async def tcp_data_client(data):
+            reader, writer = await asyncio.open_connection(
+                ADDRESS_SERVER, PORT_SERVER)
+
+            print(f'Sending data.')
+            writer.write(data)
+            await writer.drain()
+
+            print('Close the connection')
+            writer.close()
+            await writer.wait_closed()
+
 
         while DemoCapture.State != CaptureState.eFINISHED:
             # time.sleep(0.00004) # sleep is for the weak
+            time.sleep(0.01) # sleep is for the weak
             demo_captured_result = DemoCapture.Fetch(False)
             # nn_decoder.pipeline_active = False
 
@@ -333,24 +365,35 @@ if __name__ == "__main__":
 
             fetched_signals_arr = postprocessing(fetched_signals_arr)
 
+            fetched_signals_bytes = fetched_signals_arr.tobytes()
+
+
+            print(len(fetched_signals_bytes))
+            asyncio.run(tcp_data_client(fetched_signals_bytes))
+
             # --------------------------------------------------------------------------
             # Write the fetched data samples into the console window
             # --------------------------------------------------------------------------
 
             # For MP applications, the number of samples fetched by the masterApplication and the slaveApplication may be different.
             # To avoid IndexOutOfBounds errors, the lower value for NSamples is used. For single processor platforms, both values are the same.
-            for row in fetched_signals_arr:
-                # convert float array to bytes
-                b = row.tobytes()
-                # send bytes
-                if (len(b) <= BUFFER_SIZE):
-                    data_socket.send(b)
-                else:
-                    for i in range(0, len(b) // BUFFER_SIZE):
-                        data_socket.send(b[i * BUFFER_SIZE:(i + 1) * BUFFER_SIZE])
 
-                    if len(b) > ((i + 1) * BUFFER_SIZE):
-                        data_socket.send(b[(i + 1) * BUFFER_SIZE:])
+            # for row in fetched_signals_arr:
+            #     # convert float array to bytes
+            #     b = row.tobytes()
+
+            #     # asyncio.run(tcp_echo_client("Hello world!"))
+            #     asyncio.run(tcp_data_client(b))
+
+            #     # send bytes
+            #     # if (len(b) <= BUFFER_SIZE):
+            #     #     data_socket.send(b)
+            #     # else:
+            #     #     for i in range(0, len(b) // BUFFER_SIZE):
+            #     #         data_socket.send(b[i * BUFFER_SIZE:(i + 1) * BUFFER_SIZE])
+
+            #     #     if len(b) > ((i + 1) * BUFFER_SIZE):
+            #     #         data_socket.send(b[(i + 1) * BUFFER_SIZE:])
 
             capture_count += 1
 
