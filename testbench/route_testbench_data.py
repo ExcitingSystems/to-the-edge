@@ -56,9 +56,9 @@ TCP_PORT_DATA = 1030  #
 TCP_PORT_WEIGHTS = 1031  #
 BUFFER_SIZE = 988 # = floor(1024 // (measurement_size * 4)) * (measurement_size * 4) # <- 4 = nb of bits per float
 b = bytes()  # byte container for dSPACE XIL API lists
-# create socket and connect
-data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # TCP
-weights_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # TCP
+# create socket and connect (deprecated, using asyncio instead)
+#data_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # TCP
+#weights_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # TCP
 
 clr.AddReference("System.Collections")
 from System import Array
@@ -118,7 +118,7 @@ MAPort_cfg_file = r"MAPortConfigDS1202.xml"
 
 
 
-if __name__ == "__main__":
+async def main():
     # find config file
     MAPort_cfg_path = None
     for p in Path.cwd().glob("**/*"):
@@ -244,7 +244,7 @@ if __name__ == "__main__":
         #data_socket.connect((TCP_IP, TCP_PORT_DATA))
         # weights_socket.connect((TCP_IP, TCP_PORT_WEIGHTS))
 
-        time.sleep(2.0)
+        await asyncio.sleep(2.0)
 
         ### This part is only relevant if we want so send network weights to the MLB
 
@@ -293,8 +293,12 @@ if __name__ == "__main__":
         # )
 
         print("Waiting until Capture is running...")
-        while DemoCapture.State != CaptureState.eRUNNING:
-            time.sleep(0.02)
+        async def capture_starts_running():
+            while DemoCapture.State != CaptureState.eRUNNING:
+                await asyncio.sleep(0.02)
+            
+        await capture_starts_running()
+
         print("Starting to fetch data...\n")
 
         # While the Capture is running, data is fetched in intervals.
@@ -335,9 +339,23 @@ if __name__ == "__main__":
             await writer.wait_closed()
 
         async def tcp_data_client(data):
-            reader, writer = await asyncio.open_connection(
-                ADDRESS_SERVER, PORT_SERVER)
-
+            is_connected = False
+            wait_print_bit = False
+            while not is_connected:
+                try:
+                    reader, writer = await asyncio.open_connection(
+                        ADDRESS_SERVER, PORT_SERVER)
+                    is_connected = True
+                except ConnectionRefusedError:
+                    # retry after delay
+                    print(" "*80, end='\r')
+                    s = "Waiting for server to register port.."
+                    if wait_print_bit:
+                        s += '.'
+                    wait_print_bit = not wait_print_bit
+                    print(s, end='\r')
+                    await asyncio.sleep(1)
+                    
             print(f'Sending data.')
             writer.write(data)
             await writer.drain()
@@ -368,8 +386,8 @@ if __name__ == "__main__":
             fetched_signals_bytes = fetched_signals_arr.tobytes()
 
 
-            print(len(fetched_signals_bytes))
-            asyncio.run(tcp_data_client(fetched_signals_bytes))
+            print(len(fetched_signals_bytes), 'bytes')
+            await tcp_data_client(fetched_signals_bytes)
 
             # --------------------------------------------------------------------------
             # Write the fetched data samples into the console window
@@ -397,8 +415,8 @@ if __name__ == "__main__":
 
             capture_count += 1
 
-        data_socket.close()
-        weights_socket.close()
+        #data_socket.close()
+        #weights_socket.close()
         print("Capturing finished.\n")
         # nn_decoder.pipeline_active = False
 
@@ -422,7 +440,7 @@ if __name__ == "__main__":
         print("A TestbenchPortException occurred:")
         print("CodeDescription: %s" % ex.CodeDescription)
         print("VendorCodeDescription: %s" % ex.VendorCodeDescription)
-        raise
+        raise ex
     finally:
         # -----------------------------------------------------------------------
         # Attention: make sure to dispose the Capture object and the MAPort object in any case to free
@@ -435,3 +453,7 @@ if __name__ == "__main__":
         if DemoMAPort != None:
             DemoMAPort.Dispose()
             DemoMAPort = None
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
